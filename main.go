@@ -31,6 +31,7 @@ func main() {
 func run() error {
 	includeResources := newStringSet(
 		"AutoScalingGroups",
+		"InternetGateways",
 		"LoadBalancers",
 		"NatGateways",
 		"NetworkAcls",
