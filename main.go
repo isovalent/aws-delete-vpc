@@ -1,6 +1,7 @@
 package main
 
 // FIXME Delete CloudFormation resources?
+// FIXME Delete NetworkAcls?
 
 import (
 	"context"
@@ -10,18 +11,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 const (
 	instanceTerminatedWaiterMaxDuration = 5 * time.Minute
-)
-
-var (
-	vpcId = flag.String("vpc-id", "", "VPC ID")
-	tries = flag.Int("tries", 1, "tries")
 )
 
 func main() {
@@ -32,6 +30,27 @@ func main() {
 }
 
 func run() error {
+	includeResources := newStringSet(
+		"AutoScalingGroups",
+		"LoadBalancers",
+		"NatGateways",
+		"NetworkInterfaces",
+		"Reservations",
+		"RouteTables",
+		"SecurityGroups",
+		"Subnets",
+		"VpcPeeringConnections",
+		"VpnGateways",
+	)
+	excludeResources := newStringSet()
+
+	autoScalingTagKey := flag.String("autoscaling-tag-key", "", "AutoScaling tag key")
+	autoScalingTagValue := flag.String("autoscaling-tag-value", "owned", `AutoScaling tag value (default "owner")`)
+	flag.Var(includeResources, "include", "resource types to include (default all)")
+	flag.Var(excludeResources, "exclude", "resource types to exclude (default none)")
+	vpcId := flag.String("vpc-id", "", "VPC ID")
+	tries := flag.Int("tries", 1, "tries")
+
 	flag.Parse()
 	if *vpcId == "" {
 		return errors.New("VPC ID not set")
@@ -59,8 +78,20 @@ func run() error {
 		return nil
 	}
 
+	resources := includeResources.subtract(excludeResources)
+	autoScalingFilters := []types.Filter{
+		{
+			Name:   aws.String("tag-key"),
+			Values: []string{*autoScalingTagKey},
+		},
+		{
+			Name:   aws.String("tag-value"),
+			Values: []string{*autoScalingTagValue},
+		},
+	}
+
 	for try := 0; try < *tries; try++ {
-		err := deleteVpcDependencies(ctx, clients, *vpcId)
+		err := deleteVpcDependencies(ctx, clients, *vpcId, resources, autoScalingFilters)
 		log.Err(err).
 			Str("vpcId", *vpcId).
 			Msg("deleteVpcDependencies")

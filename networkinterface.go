@@ -23,8 +23,8 @@ func deleteNetworkInterfaces(ctx context.Context, client *ec2.Client, networkInt
 			log.Err(err).
 				Str("AttachmentId", *networkInterface.Attachment.AttachmentId).
 				Msg("DetachNetworkInterface")
+			errs = multierr.Append(errs, err)
 			if err != nil {
-				errs = multierr.Append(errs, err)
 				continue
 			}
 

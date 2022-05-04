@@ -6,8 +6,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	autoscalingtypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing"
 	"github.com/aws/smithy-go"
 	"github.com/rs/zerolog/log"
@@ -41,8 +42,26 @@ func deleteVpc(ctx context.Context, client *ec2.Client, vpcId string) error {
 
 // deleteVpcDependencies tries to delete all dependencies of the VPC with ID
 // vpcId. It accumulates errors.
-func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) (errs error) {
-	if true {
+func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string, resources stringSet, autoScalingFilters []autoscalingtypes.Filter) (errs error) {
+	if resources.contains("VpcPeeringConnections") {
+		if vpcPeeringConnections, err := listVpcPeeringConnections(ctx, clients.ec2, vpcId); err != nil {
+			log.Err(err).Msg("listVpcPeeringConnections")
+			errs = multierr.Append(errs, err)
+		} else {
+			log.Info().
+				Strs("vpcPeeringConnectionIds", vpcPeeringConnectionIds(vpcPeeringConnections)).
+				Msg("listVpcPeeringConnections")
+			if len(vpcPeeringConnections) > 0 {
+				err := deleteVpcPeeringConnections(ctx, clients.ec2, vpcId, vpcPeeringConnections)
+				log.Err(err).
+					Strs("vpcPeeringConnectionIds", vpcPeeringConnectionIds(vpcPeeringConnections)).
+					Msg("deleteVpcPeeringConnections")
+				errs = multierr.Append(errs, err)
+			}
+		}
+	}
+
+	if resources.contains("LoadBalancers") {
 		if loadBalancerDescriptions, err := listLoadBalancers(ctx, clients.elasticloadbalancing, vpcId); err != nil {
 			log.Err(err).Msg("listLoadBalancers")
 			errs = multierr.Append(errs, err)
@@ -60,8 +79,8 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 		}
 	}
 
-	if true {
-		if autoScalingGroups, err := listAutoScalingGroups(ctx, clients.autoscaling, vpcId); err != nil {
+	if resources.contains("AutoScalingGroups") {
+		if autoScalingGroups, err := listAutoScalingGroups(ctx, clients.autoscaling, autoScalingFilters); err != nil {
 			log.Err(err).
 				Msg("listAutoScalingGroups")
 			errs = multierr.Append(errs, err)
@@ -79,7 +98,7 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 		}
 	}
 
-	if true {
+	if resources.contains("Reservations") {
 		if reservations, err := listReservations(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).Msg("listReservations")
 			errs = multierr.Append(errs, err)
@@ -97,7 +116,7 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 		}
 	}
 
-	if true {
+	if resources.contains("NetworkInterfaces") {
 		if networkInterfaces, err := listNetworkInterfaces(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).
 				Msg("listNetworkInterfaces")
@@ -109,14 +128,14 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 			if len(networkInterfaces) > 0 {
 				err := deleteNetworkInterfaces(ctx, clients.ec2, networkInterfaces)
 				log.Err(err).
-					Strs("networkInterfaces", networkInterfaceIds(networkInterfaces)).
+					Strs("networkInterfaceIds", networkInterfaceIds(networkInterfaces)).
 					Msg("deleteNetworkInterfaces")
 				errs = multierr.Append(errs, err)
 			}
 		}
 	}
 
-	if true {
+	if resources.contains("NatGateways") {
 		if natGateways, err := listNatGateways(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).
 				Msg("listNatGateways")
@@ -135,7 +154,7 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 		}
 	}
 
-	if true {
+	if resources.contains("InternetGateways") {
 		if internetGateways, err := listInternetGateways(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).
 				Msg("listInternetGateways")
@@ -153,7 +172,7 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 		}
 	}
 
-	if true {
+	if resources.contains("Subnets") {
 		if subnets, err := listSubnets(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).
 				Msg("listSubnets")
@@ -171,7 +190,7 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 		}
 	}
 
-	if true {
+	if resources.contains("SecurityGroups") {
 		if securityGroups, err := listNonDefaultSecurityGroups(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).
 				Msg("listNonDefaultSecurityGroups")
@@ -189,7 +208,7 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 		}
 	}
 
-	if true {
+	if resources.contains("RouteTables") {
 		if routeTables, err := listRouteTables(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).
 				Msg("listRouteTables")
@@ -207,7 +226,7 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 		}
 	}
 
-	if true {
+	if resources.contains("VpnGateways") {
 		if vpnGateways, err := listVpnGateways(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).
 				Msg("listVpnGateways")
@@ -235,8 +254,8 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string) 
 	return
 }
 
-func ec2VpcFilter(vpcId string) []types.Filter {
-	return []types.Filter{
+func ec2VpcFilter(vpcId string) []ec2types.Filter {
+	return []ec2types.Filter{
 		{
 			Name:   aws.String("vpc-id"),
 			Values: []string{vpcId},

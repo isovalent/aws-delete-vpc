@@ -19,6 +19,27 @@ func deleteRouteTables(ctx context.Context, client *ec2.Client, vpcId string, ro
 			continue
 		}
 
+		// FIXME remove this un-needed code
+		/*
+			var routeErrs error
+			for _, route := range routeTable.Routes {
+				_, err := client.DeleteRoute(ctx, &ec2.DeleteRouteInput{
+					RouteTableId:             routeTable.RouteTableId,
+					DestinationCidrBlock:     route.DestinationCidrBlock,
+					DestinationIpv6CidrBlock: route.DestinationIpv6CidrBlock,
+					DestinationPrefixListId:  route.DestinationPrefixListId,
+				})
+				log.Err(err).
+					Str("RouteTableId", *routeTable.RouteTableId).
+					Msg("DeleteRoute")
+				routeErrs = multierr.Append(routeErrs, err)
+			}
+			errs = multierr.Append(errs, routeErrs)
+			if routeErrs != nil {
+				continue
+			}
+		*/
+
 		_, err := client.DeleteRouteTable(ctx, &ec2.DeleteRouteTableInput{
 			RouteTableId: routeTable.RouteTableId,
 		})

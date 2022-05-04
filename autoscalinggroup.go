@@ -58,7 +58,8 @@ func deleteAutoScalingGroups(ctx context.Context, client *autoscaling.Client, ec
 			err := instanceTerminatedWaiter.Wait(ctx, &ec2.DescribeInstancesInput{
 				InstanceIds: instanceIds,
 			}, instanceTerminatedWaiterMaxDuration)
-			log.Err(err).Msg("InstanceTerminatedWaiter.Wait")
+			log.Err(err).
+				Msg("InstanceTerminatedWaiter.Wait")
 			errs = multierr.Append(errs, err)
 			if err != nil {
 				continue
@@ -77,18 +78,9 @@ func deleteAutoScalingGroups(ctx context.Context, client *autoscaling.Client, ec
 	return
 }
 
-func listAutoScalingGroups(ctx context.Context, client *autoscaling.Client, vpcId string) ([]types.AutoScalingGroup, error) {
+func listAutoScalingGroups(ctx context.Context, client *autoscaling.Client, filters []types.Filter) ([]types.AutoScalingGroup, error) {
 	input := autoscaling.DescribeAutoScalingGroupsInput{
-		Filters: []types.Filter{ // FIXME determine actual filters
-			{
-				Name:   aws.String("tag-key"),
-				Values: []string{"Name"},
-			},
-			{
-				Name:   aws.String("tag-value"),
-				Values: []string{"twpayne-nwm-flatcar-ng-1"}, // FIXME
-			},
-		},
+		Filters: filters,
 	}
 	var autoScalingGroups []types.AutoScalingGroup
 	for {
