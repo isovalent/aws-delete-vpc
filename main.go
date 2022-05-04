@@ -1,7 +1,6 @@
 package main
 
 // FIXME Delete CloudFormation resources?
-// FIXME Delete NetworkAcls?
 
 import (
 	"context"
@@ -34,6 +33,7 @@ func run() error {
 		"AutoScalingGroups",
 		"LoadBalancers",
 		"NatGateways",
+		"NetworkAcls",
 		"NetworkInterfaces",
 		"Reservations",
 		"RouteTables",

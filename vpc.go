@@ -116,6 +116,25 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string, 
 		}
 	}
 
+	if resources.contains("NetworkAcls") {
+		if networkAcls, err := listNonDefaultNetworkAcls(ctx, clients.ec2, vpcId); err != nil {
+			log.Err(err).
+				Msg("listNetworkAcls")
+			errs = multierr.Append(errs, err)
+		} else {
+			log.Info().
+				Strs("networkAcls", networkAclIds(networkAcls)).
+				Msg("listNetworkAcls")
+			if len(networkAcls) > 0 {
+				err := deleteNetworkAcls(ctx, clients.ec2, vpcId, networkAcls)
+				log.Err(err).
+					Strs("networkAcls", networkAclIds(networkAcls)).
+					Msg("deleteNetworkAcls")
+				errs = multierr.Append(errs, err)
+			}
+		}
+	}
+
 	if resources.contains("NetworkInterfaces") {
 		if networkInterfaces, err := listNetworkInterfaces(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).
