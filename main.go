@@ -1,6 +1,7 @@
 package main
 
 // FIXME Delete CloudFormation resources?
+// FIXME Delete CloudWatch log groups?
 
 import (
 	"context"
@@ -80,6 +81,8 @@ func run() error {
 	}
 
 	resources := includeResources.subtract(excludeResources)
+	// FIXME Find an alternative way to detect AutoScalingGroups associated with
+	// the VPC.
 	autoScalingFilters := []types.Filter{
 		{
 			Name:   aws.String("tag-key"),

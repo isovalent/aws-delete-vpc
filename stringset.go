@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// A stringSet is a set of strings that implements the flag.Value interface.
 type stringSet map[string]struct{}
 
 func newStringSet(elements ...string) stringSet {

@@ -28,7 +28,7 @@ func deleteNetworkInterfaces(ctx context.Context, client *ec2.Client, networkInt
 				continue
 			}
 
-			// FIXME wait for detachment somehow
+			// FIXME Wait for detachment somehow
 		}
 
 		// Delete the NetworkInterface.
