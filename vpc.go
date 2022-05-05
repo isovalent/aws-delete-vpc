@@ -80,20 +80,25 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string, 
 	}
 
 	if resources.contains("AutoScalingGroups") {
-		if autoScalingGroups, err := listAutoScalingGroups(ctx, clients.autoscaling, autoScalingFilters); err != nil {
-			log.Err(err).
-				Msg("listAutoScalingGroups")
-			errs = multierr.Append(errs, err)
+		if len(autoScalingFilters) == 0 {
+			log.Warn().
+				Msg("no AutoScalingGroup filters defined, skipping AutoScalingGroups")
 		} else {
-			log.Info().
-				Strs("autoScalingGroupNames", autoScalingGroupNames(autoScalingGroups)).
-				Msg("listAutoScalingGroups")
-			if len(autoScalingGroups) > 0 {
-				err := deleteAutoScalingGroups(ctx, clients.autoscaling, clients.ec2, autoScalingGroups)
+			if autoScalingGroups, err := listAutoScalingGroups(ctx, clients.autoscaling, autoScalingFilters); err != nil {
 				log.Err(err).
-					Strs("autoScalingGroupNames", autoScalingGroupNames(autoScalingGroups)).
-					Msg("deleteAutoScalingGroups")
+					Msg("listAutoScalingGroups")
 				errs = multierr.Append(errs, err)
+			} else {
+				log.Info().
+					Strs("autoScalingGroupNames", autoScalingGroupNames(autoScalingGroups)).
+					Msg("listAutoScalingGroups")
+				if len(autoScalingGroups) > 0 {
+					err := deleteAutoScalingGroups(ctx, clients.autoscaling, clients.ec2, autoScalingGroups)
+					log.Err(err).
+						Strs("autoScalingGroupNames", autoScalingGroupNames(autoScalingGroups)).
+						Msg("deleteAutoScalingGroups")
+					errs = multierr.Append(errs, err)
+				}
 			}
 		}
 	}

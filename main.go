@@ -84,15 +84,18 @@ func run() error {
 	resources := includeResources.subtract(excludeResources)
 	// FIXME Find an alternative way to detect AutoScalingGroups associated with
 	// the VPC.
-	autoScalingFilters := []types.Filter{
-		{
-			Name:   aws.String("tag-key"),
-			Values: []string{*autoScalingTagKey},
-		},
-		{
-			Name:   aws.String("tag-value"),
-			Values: []string{*autoScalingTagValue},
-		},
+	var autoScalingFilters []types.Filter
+	if *autoScalingTagKey != "" && *autoScalingTagValue != "" {
+		autoScalingFilters = []types.Filter{
+			{
+				Name:   aws.String("tag-key"),
+				Values: []string{*autoScalingTagKey},
+			},
+			{
+				Name:   aws.String("tag-value"),
+				Values: []string{*autoScalingTagValue},
+			},
+		}
 	}
 
 	for try := 0; try < *tries; try++ {
