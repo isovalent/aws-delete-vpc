@@ -30,6 +30,7 @@ func main() {
 }
 
 func run() error {
+	excludeResources := newStringSet()
 	includeResources := newStringSet(
 		"AutoScalingGroups",
 		"InternetGateways",
@@ -44,14 +45,14 @@ func run() error {
 		"VpcPeeringConnections",
 		"VpnGateways",
 	)
-	excludeResources := newStringSet()
 
 	autoScalingTagKey := flag.String("autoscaling-tag-key", "", "AutoScaling tag key")
 	autoScalingTagValue := flag.String("autoscaling-tag-value", "owned", `AutoScaling tag value (default "owner")`)
-	flag.Var(includeResources, "include", "resource types to include (default all)")
 	flag.Var(excludeResources, "exclude", "resource types to exclude (default none)")
+	flag.Var(includeResources, "include", "resource types to include (default all)")
+	retryInterval := flag.Duration("retry-interval", 1*time.Minute, "Re-try interval")
+	tries := flag.Int("tries", 3, "tries")
 	vpcId := flag.String("vpc-id", "", "VPC ID")
-	tries := flag.Int("tries", 1, "tries")
 
 	flag.Parse()
 	if *vpcId == "" {
@@ -95,23 +96,24 @@ func run() error {
 	}
 
 	for try := 0; try < *tries; try++ {
+		if try != 0 {
+			log.Info().
+				Dur("duration", *retryInterval).
+				Msg("Sleep")
+			time.Sleep(*retryInterval)
+		}
+
 		err := deleteVpcDependencies(ctx, clients, *vpcId, resources, autoScalingFilters)
 		log.Err(err).
 			Str("vpcId", *vpcId).
 			Msg("deleteVpcDependencies")
-		if err != nil {
-			continue
-		}
 
 		deleted, err := tryDeleteVpc(ctx, clients.ec2, *vpcId)
 		log.Err(err).
 			Bool("deleted", deleted).
 			Str("vpcId", *vpcId).
 			Msg("tryDeleteVpc")
-		switch {
-		case err != nil:
-			continue
-		case deleted:
+		if deleted {
 			return nil
 		}
 	}
