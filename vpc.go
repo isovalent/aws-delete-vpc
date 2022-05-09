@@ -9,6 +9,7 @@ import (
 	autoscalingtypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing"
 	"github.com/aws/smithy-go"
 	"github.com/rs/zerolog/log"
@@ -19,6 +20,7 @@ type clients struct {
 	autoscaling          *autoscaling.Client
 	ec2                  *ec2.Client
 	elasticloadbalancing *elasticloadbalancing.Client
+	eks                  *eks.Client
 }
 
 func newClientsFromConfig(config aws.Config) *clients {
@@ -26,6 +28,7 @@ func newClientsFromConfig(config aws.Config) *clients {
 		autoscaling:          autoscaling.NewFromConfig(config),
 		ec2:                  ec2.NewFromConfig(config),
 		elasticloadbalancing: elasticloadbalancing.NewFromConfig(config),
+		eks:                  eks.NewFromConfig(config),
 	}
 }
 

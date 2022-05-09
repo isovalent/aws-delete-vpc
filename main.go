@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
+	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -48,6 +49,7 @@ func run() error {
 
 	autoScalingTagKey := flag.String("autoscaling-tag-key", "", "AutoScaling tag key")
 	autoScalingTagValue := flag.String("autoscaling-tag-value", "owned", `AutoScaling tag value (default "owner")`)
+	clusterName := flag.String("cluster-name", "", "cluster name")
 	flag.Var(excludeResources, "exclude", "resource types to exclude (default none)")
 	flag.Var(includeResources, "include", "resource types to include (default all)")
 	retryInterval := flag.Duration("retry-interval", 1*time.Minute, "Re-try interval")
@@ -55,9 +57,6 @@ func run() error {
 	vpcId := flag.String("vpc-id", "", "VPC ID")
 
 	flag.Parse()
-	if *vpcId == "" {
-		return errors.New("VPC ID not set")
-	}
 
 	ctx := context.Background()
 
@@ -68,6 +67,22 @@ func run() error {
 		return err
 	}
 	clients := newClientsFromConfig(config)
+
+	if *clusterName != "" && *vpcId == "" {
+		output, err := clients.eks.DescribeCluster(ctx, &eks.DescribeClusterInput{
+			Name: clusterName,
+		})
+		if err != nil {
+			return err
+		}
+		if output.Cluster != nil && output.Cluster.ResourcesVpcConfig != nil && output.Cluster.ResourcesVpcConfig.VpcId != nil {
+			vpcId = output.Cluster.ResourcesVpcConfig.VpcId
+		}
+	}
+
+	if *vpcId == "" {
+		return errors.New("VPC ID not set")
+	}
 
 	deleted, err := tryDeleteVpc(ctx, clients.ec2, *vpcId)
 	log.Err(err).
