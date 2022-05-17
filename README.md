@@ -44,11 +44,17 @@ operating correctly. Known problems include:
   
 * There is no API to wait for a NetworkInterface to be detached.
 
+Some resources (e.g. InternetGateways, NetworkInterfaces, and VpnGateways) must
+be detached before they can be deleted. If the program is interrupted between
+detachment and deletion these resources will not be deleted the next time the
+program is run.
+
 Future: may lose resources if program is interrupted between detach and delete.
 
 ## References
 
 * [I tried to delete my Amazon VPC, and I received a dependency error. How can I delete my Amazon VPC?](https://aws.amazon.com/premiumsupport/knowledge-center/troubleshoot-dependency-error-delete-vpc/)
+* [add --all-dependencies option to ec2 delete-vpc](https://github.com/aws/aws-cli/issues/1721)
 
 ## License
 
