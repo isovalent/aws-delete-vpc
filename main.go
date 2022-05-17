@@ -13,8 +13,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
-	"github.com/aws/aws-sdk-go-v2/service/eks"
+	autoscalingtypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
+	ekstypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -34,6 +34,7 @@ func run() error {
 	excludeResources := newStringSet()
 	includeResources := newStringSet(
 		"AutoScalingGroups",
+		"Clusters",
 		"InternetGateways",
 		"LoadBalancers",
 		"NatGateways",
@@ -68,15 +69,47 @@ func run() error {
 	}
 	clients := newClientsFromConfig(config)
 
-	if *clusterName != "" && *vpcId == "" {
-		output, err := clients.eks.DescribeCluster(ctx, &eks.DescribeClusterInput{
-			Name: clusterName,
-		})
-		if err != nil {
+	var cluster *ekstypes.Cluster
+	if *clusterName != "" {
+		cluster, err = listCluster(ctx, clients.eks, *clusterName)
+		// if err != nil { V
+		// 	var operationErr *smithy.OperationError
+		// 	if !errors.As(err, &operationErr) || operationErr.
+		// }
+		// Ignore ResourceNotFoundExceptions in case the cluster has already been deleted.
+		var resourceNotFoundExceptionErr *ekstypes.ResourceNotFoundException
+		if err != nil && !errors.As(err, &resourceNotFoundExceptionErr) {
+			fmt.Printf("err=%+v type=%T\n", err, err)
 			return err
 		}
-		if output.Cluster != nil && output.Cluster.ResourcesVpcConfig != nil && output.Cluster.ResourcesVpcConfig.VpcId != nil {
-			vpcId = output.Cluster.ResourcesVpcConfig.VpcId
+
+		// Retrieve the VPC ID from the cluster if it is not already known.
+		if *vpcId == "" && cluster != nil && cluster.ResourcesVpcConfig != nil && cluster.ResourcesVpcConfig.VpcId != nil {
+			vpcId = cluster.ResourcesVpcConfig.VpcId
+		}
+	}
+
+	resources := includeResources.subtract(excludeResources)
+
+	// By default, use the tag k8s.io/cluster/$CLUSTER_NAME=owned to identify
+	// AutoScalingGroups.
+	//
+	// FIXME Find an alternative way to detect AutoScalingGroups associated with
+	// the VPC.
+	if *autoScalingTagKey == "" && *autoScalingTagValue == "owned" && *clusterName != "" {
+		autoScalingTagKey = aws.String("k8s.io/cluster/" + *clusterName)
+	}
+	var autoScalingFilters []autoscalingtypes.Filter
+	if *autoScalingTagKey != "" && *autoScalingTagValue != "" {
+		autoScalingFilters = []autoscalingtypes.Filter{
+			{
+				Name:   aws.String("tag-key"),
+				Values: []string{*autoScalingTagKey},
+			},
+			{
+				Name:   aws.String("tag-value"),
+				Values: []string{*autoScalingTagValue},
+			},
 		}
 	}
 
@@ -93,24 +126,14 @@ func run() error {
 	case err != nil:
 		return err
 	case deleted:
-		return nil
-	}
-
-	resources := includeResources.subtract(excludeResources)
-	// FIXME Find an alternative way to detect AutoScalingGroups associated with
-	// the VPC.
-	var autoScalingFilters []types.Filter
-	if *autoScalingTagKey != "" && *autoScalingTagValue != "" {
-		autoScalingFilters = []types.Filter{
-			{
-				Name:   aws.String("tag-key"),
-				Values: []string{*autoScalingTagKey},
-			},
-			{
-				Name:   aws.String("tag-value"),
-				Values: []string{*autoScalingTagValue},
-			},
+		if resources.contains("Clusters") {
+			if cluster != nil {
+				if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
+					return err
+				}
+			}
 		}
+		return nil
 	}
 
 	for try := 0; try < *tries; try++ {
@@ -132,6 +155,13 @@ func run() error {
 			Str("vpcId", *vpcId).
 			Msg("tryDeleteVpc")
 		if deleted {
+			if resources.contains("Clusters") {
+				if cluster != nil {
+					if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
+						return err
+					}
+				}
+			}
 			return nil
 		}
 	}

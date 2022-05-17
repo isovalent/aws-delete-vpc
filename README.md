@@ -15,12 +15,15 @@ Syntax:
 $ export AWS_PROFILE=xxxxxxxx
 $ export AWS_REGION=xx-xxxx-x
 $ export VPC_ID=vpc-xxxxxxxxxxxxxxxxx
-$ export CLUSTER_NAME=xxxxxxxx
-$ aws-delete-vpc -vpc-id=$VPC_ID -autoscaling-tag-key=k8s.io/cluster/$CLUSTER_NAME -autoscaling-tag-value=owner
+$ aws-delete-vpc -vpc-id=$VPC_ID
 ```
 
 This will attempt to delete the specified VPC and its dependent resources.
 Several attempts may be needed due to limitations of the AWS API.
+
+If the optional `-cluster-name` flag is passed then the VPC ID will be
+discovered automatically and any EKS cluster with the same name deleted after
+the VPC is deleted.
 
 ## Known limitations
 
