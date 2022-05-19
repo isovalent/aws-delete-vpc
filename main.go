@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -79,13 +80,28 @@ func run() error {
 		// Ignore ResourceNotFoundExceptions in case the cluster has already been deleted.
 		var resourceNotFoundExceptionErr *ekstypes.ResourceNotFoundException
 		if err != nil && !errors.As(err, &resourceNotFoundExceptionErr) {
-			fmt.Printf("err=%+v type=%T\n", err, err)
 			return err
 		}
 
 		// Retrieve the VPC ID from the cluster if it is not already known.
 		if *vpcId == "" && cluster != nil && cluster.ResourcesVpcConfig != nil && cluster.ResourcesVpcConfig.VpcId != nil {
 			vpcId = cluster.ResourcesVpcConfig.VpcId
+		}
+
+		// Retrieve the VPC ID by name if it is not already known. This assumes
+		// that the VPC has a tag with key Name and value equal to the cluster
+		// name.
+		if *vpcId == "" {
+			switch vpcs, err := findVpcsByName(ctx, clients.ec2, *clusterName); {
+			case err != nil:
+				return err
+			case len(vpcs) == 0:
+				// Do nothing.
+			case len(vpcs) == 1:
+				vpcId = vpcs[0].VpcId
+			default:
+				return fmt.Errorf("multiple VPCs with cluster name %q: %s", *clusterName, strings.Join(vpcIds(vpcs), ", "))
+			}
 		}
 	}
 

@@ -290,6 +290,29 @@ func ec2VpcFilter(vpcId string) []ec2types.Filter {
 	}
 }
 
+func findVpcsByName(ctx context.Context, client *ec2.Client, name string) ([]ec2types.Vpc, error) {
+	input := ec2.DescribeVpcsInput{
+		Filters: []ec2types.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: []string{name},
+			},
+		},
+	}
+	var vpcs []ec2types.Vpc
+	for {
+		output, err := client.DescribeVpcs(ctx, &input)
+		if err != nil {
+			return nil, err
+		}
+		vpcs = append(vpcs, output.Vpcs...)
+		if output.NextToken == nil {
+			return vpcs, nil
+		}
+		input.NextToken = output.NextToken
+	}
+}
+
 // tryDeleteVpc tries to delete the VPC with ID vpcId. It returns a boolean
 // indicating if the VPC was deleted and any error. If the VPC was not deleted
 // and the error is nil then the VPC has dependencies that must be deleted
@@ -308,4 +331,14 @@ func tryDeleteVpc(ctx context.Context, client *ec2.Client, vpcId string) (bool, 
 		}
 	}
 	return false, err
+}
+
+func vpcIds(vpcs []ec2types.Vpc) []string {
+	vpcIds := make([]string, 0, len(vpcs))
+	for _, vpc := range vpcs {
+		if vpc.VpcId != nil {
+			vpcIds = append(vpcIds, *vpc.VpcId)
+		}
+	}
+	return vpcIds
 }
