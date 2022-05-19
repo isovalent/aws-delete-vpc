@@ -12,10 +12,13 @@ AWS does not provide any tools to do this automatically.
 Syntax:
 
 ```console
-$ export AWS_PROFILE=xxxxxxxx
-$ export AWS_REGION=xx-xxxx-x
-$ export VPC_ID=vpc-xxxxxxxxxxxxxxxxx
 $ aws-delete-vpc -vpc-id=$VPC_ID
+```
+
+or
+
+```console
+$ aws-delete-vpc -cluster-name=$CLUSTER_NAME
 ```
 
 This will attempt to delete the specified VPC and its dependent resources.
