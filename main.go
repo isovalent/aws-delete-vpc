@@ -36,6 +36,7 @@ func run() error {
 	includeResources := newStringSet(
 		"AutoScalingGroups",
 		"Clusters",
+		"ElasticIps",
 		"InternetGateways",
 		"LoadBalancers",
 		"NatGateways",
@@ -160,7 +161,7 @@ func run() error {
 			time.Sleep(*retryInterval)
 		}
 
-		err := deleteVpcDependencies(ctx, clients, *vpcId, resources, autoScalingFilters)
+		err := deleteVpcDependencies(ctx, clients, *clusterName, *vpcId, resources, autoScalingFilters)
 		log.Err(err).
 			Str("vpcId", *vpcId).
 			Msg("deleteVpcDependencies")
