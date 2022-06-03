@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/rs/zerolog/log"
@@ -26,35 +25,6 @@ func deleteNetworkInterfaces(ctx context.Context, client *ec2.Client, networkInt
 			continue
 		}
 
-		// Release any Elastic IPs associated with the network interface.
-		output, err := client.DescribeAddresses(ctx, &ec2.DescribeAddressesInput{
-			Filters: []types.Filter{
-				{
-					Name:   aws.String("network-interface-id"),
-					Values: []string{*networkInterface.NetworkInterfaceId},
-				},
-			},
-		})
-		errs = multierr.Append(errs, err)
-		if err == nil {
-			log.Err(err).
-				Strs("AllocationIds", allocationIds(output.Addresses)).
-				Msg("DescribeAddresses")
-			for _, address := range output.Addresses {
-				_, err := client.ReleaseAddress(ctx, &ec2.ReleaseAddressInput{
-					AllocationId: address.AllocationId,
-				})
-				log.Err(err).
-					Str("AllocationId", *address.AllocationId).
-					Str("PublicIp", *address.PublicIp).
-					Msg("ReleaseAddress")
-				errs = multierr.Append(errs, err)
-			}
-		} else {
-			log.Err(err).
-				Msg("DescribeAddresses")
-		}
-
 		// Detach the NetworkInterface.
 		if networkInterface.Attachment != nil && networkInterface.Attachment.AttachmentId != nil {
 			_, err := client.DetachNetworkInterface(ctx, &ec2.DetachNetworkInterfaceInput{
@@ -72,7 +42,7 @@ func deleteNetworkInterfaces(ctx context.Context, client *ec2.Client, networkInt
 		}
 
 		// Delete the NetworkInterface.
-		_, err = client.DeleteNetworkInterface(ctx, &ec2.DeleteNetworkInterfaceInput{
+		_, err := client.DeleteNetworkInterface(ctx, &ec2.DeleteNetworkInterfaceInput{
 			NetworkInterfaceId: networkInterface.NetworkInterfaceId,
 		})
 		log.Err(err).
@@ -80,6 +50,7 @@ func deleteNetworkInterfaces(ctx context.Context, client *ec2.Client, networkInt
 			Msg("DeleteNetworkInterface")
 		errs = multierr.Append(errs, err)
 	}
+
 	return
 }
 

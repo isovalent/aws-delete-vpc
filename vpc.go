@@ -45,7 +45,7 @@ func deleteVpc(ctx context.Context, client *ec2.Client, vpcId string) error {
 
 // deleteVpcDependencies tries to delete all dependencies of the VPC with ID
 // vpcId. It accumulates errors.
-func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string, resources stringSet, autoScalingFilters []autoscalingtypes.Filter) (errs error) {
+func deleteVpcDependencies(ctx context.Context, clients *clients, clusterName, vpcId string, resources stringSet, autoScalingFilters []autoscalingtypes.Filter) (errs error) {
 	if resources.contains("VpcPeeringConnections") {
 		if vpcPeeringConnections, err := listVpcPeeringConnections(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).Msg("listVpcPeeringConnections")
@@ -267,6 +267,30 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, vpcId string, 
 				log.Err(err).
 					Strs("vpnGatewayIds", vpnGatewayIds(vpnGateways)).
 					Msg("deleteVpnGateways")
+				errs = multierr.Append(errs, err)
+			}
+		}
+	}
+
+	if resources.contains("ElasticIps") && clusterName != "" {
+		filters := []ec2types.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: []string{clusterName + "*"},
+			},
+		}
+		if addresses, err := listElasticIps(ctx, clients.ec2, filters); err != nil {
+			log.Err(err).
+				Msg("listElasticIps")
+		} else {
+			log.Info().
+				Strs("publicIps", publicIps(addresses)).
+				Msg("listElasticIps")
+			if len(addresses) > 0 {
+				err := releaseElasticIps(ctx, clients.ec2, addresses)
+				log.Err(err).
+					Strs("publicIps", publicIps(addresses)).
+					Msg("deleteElasticIps")
 				errs = multierr.Append(errs, err)
 			}
 		}
