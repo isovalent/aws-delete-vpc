@@ -7,6 +7,14 @@ Delete Virtual Private Clouds in Amazon Web Services.
 VPCs can only be deleted when all of their dependent resources are deleted, and
 AWS does not provide any tools to do this automatically.
 
+## Build
+
+To build the code please run the following locally:
+
+```console
+$ go build .
+```
+
 ## Usage
 
 Syntax:
