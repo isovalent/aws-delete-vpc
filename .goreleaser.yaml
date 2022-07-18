@@ -1,0 +1,15 @@
+project_name: aws-delete-vpc
+
+builds:
+- env:
+  - CGO_ENABLED=0
+  goarch:
+  - amd64
+  goos:
+  - linux
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
