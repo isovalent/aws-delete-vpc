@@ -7,9 +7,17 @@ Delete Virtual Private Clouds in Amazon Web Services.
 VPCs can only be deleted when all of their dependent resources are deleted, and
 AWS does not provide any tools to do this automatically.
 
+## Installation
+
+To install the latest `aws-delete-vpc` release run:
+
+```console
+$ go install github.com/isovalent/aws-delete-vpc@latest
+```
+
 ## Build
 
-To build the code please run the following locally:
+To build `aws-delete-vpc` from source please run the following locally:
 
 ```console
 $ go build .
@@ -52,7 +60,7 @@ operating correctly. Known problems include:
 * `InstanceTerminatedWaiter`s return that an instance has terminated before it
   has actually terminated, meaning that deleting related resources (e.g.
   NetworkInterfaces) will fail.
-  
+
 * There is no API to wait for a NetworkInterface to be detached.
 
 Some resources (e.g. InternetGateways, NetworkInterfaces, and VpnGateways) must
