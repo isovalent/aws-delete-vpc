@@ -30,17 +30,16 @@ func listNatGateways(ctx context.Context, client *ec2.Client, vpcId string) ([]t
 		Filter: ec2VpcFilter(vpcId),
 	}
 	var natGateways []types.NatGateway
-	for {
-		output, err := client.DescribeNatGateways(ctx, &input)
+
+	paginator := ec2.NewDescribeNatGatewaysPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		natGateways = append(natGateways, output.NatGateways...)
-		if output.NextToken == nil {
-			return natGateways, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return natGateways, nil
 }
 
 func natGatewayIds(natGateways []types.NatGateway) []string {

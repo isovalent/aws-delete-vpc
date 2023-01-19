@@ -59,17 +59,17 @@ func listNetworkInterfaces(ctx context.Context, client *ec2.Client, vpcId string
 		Filters: ec2VpcFilter(vpcId),
 	}
 	var networkInterfaces []types.NetworkInterface
-	for {
-		output, err := client.DescribeNetworkInterfaces(ctx, &input)
+
+	paginator := ec2.NewDescribeNetworkInterfacesPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		networkInterfaces = append(networkInterfaces, output.NetworkInterfaces...)
-		if output.NextToken == nil {
-			return networkInterfaces, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return networkInterfaces, nil
+
 }
 
 func networkInterfaceIds(networkInterfaces []types.NetworkInterface) []string {

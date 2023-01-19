@@ -56,8 +56,10 @@ func listNonDefaultSecurityGroups(ctx context.Context, client *ec2.Client, vpcId
 		Filters: ec2VpcFilter(vpcId),
 	}
 	var securityGroups []types.SecurityGroup
-	for {
-		output, err := client.DescribeSecurityGroups(ctx, &input)
+
+	paginator := ec2.NewDescribeSecurityGroupsPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -67,11 +69,9 @@ func listNonDefaultSecurityGroups(ctx context.Context, client *ec2.Client, vpcId
 			}
 			securityGroups = append(securityGroups, securityGroup)
 		}
-		if output.NextToken == nil {
-			return securityGroups, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return securityGroups, nil
+
 }
 
 func securityGroupIds(securityGroups []types.SecurityGroup) []string {

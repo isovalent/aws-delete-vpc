@@ -40,17 +40,17 @@ func listRouteTables(ctx context.Context, client *ec2.Client, vpcId string) ([]t
 		},
 	}
 	var routeTables []types.RouteTable
-	for {
-		output, err := client.DescribeRouteTables(ctx, &input)
+
+	paginator := ec2.NewDescribeRouteTablesPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		routeTables = append(routeTables, output.RouteTables...)
-		if output.NextToken == nil {
-			return routeTables, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return routeTables, nil
+
 }
 
 func routeTableIds(routeTables []types.RouteTable) []string {

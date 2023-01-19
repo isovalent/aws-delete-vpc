@@ -40,17 +40,15 @@ func listSubnets(ctx context.Context, client *ec2.Client, vpcId string) ([]types
 		},
 	}
 	var subnets []types.Subnet
-	for {
-		output, err := client.DescribeSubnets(ctx, &input)
+	paginator := ec2.NewDescribeSubnetsPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		subnets = append(subnets, output.Subnets...)
-		if output.NextToken == nil {
-			return subnets, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return subnets, nil
 }
 
 func subnetIds(subnets []types.Subnet) []string {

@@ -324,17 +324,15 @@ func findVpcsByName(ctx context.Context, client *ec2.Client, name string) ([]ec2
 		},
 	}
 	var vpcs []ec2types.Vpc
-	for {
-		output, err := client.DescribeVpcs(ctx, &input)
+	paginator := ec2.NewDescribeVpcsPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		vpcs = append(vpcs, output.Vpcs...)
-		if output.NextToken == nil {
-			return vpcs, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return vpcs, nil
 }
 
 // tryDeleteVpc tries to delete the VPC with ID vpcId. It returns a boolean

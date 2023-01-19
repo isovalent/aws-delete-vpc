@@ -38,7 +38,6 @@ func deleteVpcPeeringConnections(ctx context.Context, client *ec2.Client, vpcId 
 
 func listVpcPeeringConnections(ctx context.Context, client *ec2.Client, vpcId string) ([]types.VpcPeeringConnection, error) {
 	var vpcPeeringConnections []types.VpcPeeringConnection
-ACCEPTER_REQUESTER:
 	for _, name := range []string{
 		"accepter-vpc-info.vpc-id",
 		"requester-vpc-info.vpc-id",
@@ -51,16 +50,13 @@ ACCEPTER_REQUESTER:
 				},
 			},
 		}
-		for {
-			output, err := client.DescribeVpcPeeringConnections(ctx, &input)
+		paginator := ec2.NewDescribeVpcPeeringConnectionsPaginator(client, &input)
+		for paginator.HasMorePages() {
+			output, err := paginator.NextPage(ctx)
 			if err != nil {
 				return nil, err
 			}
 			vpcPeeringConnections = append(vpcPeeringConnections, output.VpcPeeringConnections...)
-			if output.NextToken == nil {
-				continue ACCEPTER_REQUESTER
-			}
-			input.NextToken = output.NextToken
 		}
 	}
 	return vpcPeeringConnections, nil

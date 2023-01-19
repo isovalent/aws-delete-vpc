@@ -83,15 +83,14 @@ func listAutoScalingGroups(ctx context.Context, client *autoscaling.Client, filt
 		Filters: filters,
 	}
 	var autoScalingGroups []types.AutoScalingGroup
-	for {
-		output, err := client.DescribeAutoScalingGroups(ctx, &input)
+
+	paginator := autoscaling.NewDescribeAutoScalingGroupsPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		autoScalingGroups = append(autoScalingGroups, output.AutoScalingGroups...)
-		if output.NextToken == nil {
-			return autoScalingGroups, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return autoScalingGroups, nil
 }

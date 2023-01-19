@@ -34,8 +34,10 @@ func listNonDefaultNetworkAcls(ctx context.Context, client *ec2.Client, vpcId st
 		Filters: ec2VpcFilter(vpcId),
 	}
 	var networkAcls []types.NetworkAcl
-	for {
-		output, err := client.DescribeNetworkAcls(ctx, &input)
+
+	paginator := ec2.NewDescribeNetworkAclsPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -44,11 +46,9 @@ func listNonDefaultNetworkAcls(ctx context.Context, client *ec2.Client, vpcId st
 				networkAcls = append(networkAcls, networkAcl)
 			}
 		}
-		if output.NextToken == nil {
-			return networkAcls, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return networkAcls, nil
+
 }
 
 func networkAclIds(networkAcls []types.NetworkAcl) []string {
