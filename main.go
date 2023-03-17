@@ -172,11 +172,10 @@ func run() error {
 			Str("vpcId", *vpcId).
 			Msg("tryDeleteVpc")
 		if deleted {
-			if resources.contains("Clusters") {
-				if cluster != nil {
-					if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
-						return err
-					}
+			if resources.contains("Clusters") && cluster != nil {
+				if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
+					// retry is required if cluster has node-groups
+					continue
 				}
 			}
 			return nil
