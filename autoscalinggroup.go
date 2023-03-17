@@ -78,13 +78,72 @@ func deleteAutoScalingGroups(ctx context.Context, client *autoscaling.Client, ec
 	return
 }
 
-func listAutoScalingGroups(ctx context.Context, client *autoscaling.Client, filters []types.Filter) ([]types.AutoScalingGroup, error) {
-	input := autoscaling.DescribeAutoScalingGroupsInput{
-		Filters: filters,
+func listAutoScalingGroups(ctx context.Context, client *autoscaling.Client, clusterName string, paramTagKey, paramTagValue *string) ([]types.AutoScalingGroup, error) {
+	autoScalingGroups := make([]types.AutoScalingGroup, 0)
+	filters := autoScalingFilters(clusterName, paramTagKey, paramTagValue)
+	groupNames := newStringSet()
+	for _, filter := range filters {
+		groups, err := describeAutoScalingGroups(ctx, client, filter)
+		if err != nil {
+			return nil, err
+		}
+		for _, group := range groups {
+			if groupNames.contains(*group.AutoScalingGroupARN) {
+				continue
+			}
+			autoScalingGroups = append(autoScalingGroups, group)
+			_ = groupNames.Set(*group.AutoScalingGroupARN)
+		}
 	}
+	return autoScalingGroups, nil
+}
+
+func autoScalingFilters(clusterName string, paramTagKey, paramTagValue *string) [][]types.Filter {
+	filters := make([][]types.Filter, 0)
+	if clusterName != "" {
+		filters = append(filters, []types.Filter{
+			{
+				Name:   aws.String("tag-key"),
+				Values: []string{"k8s.io/cluster-autoscaler/" + clusterName, "kubernetes.io/cluster/" + clusterName, "k8s.io/cluster/" + clusterName},
+			},
+			{
+				Name:   aws.String("tag-value"),
+				Values: []string{"owned"},
+			},
+		})
+		filters = append(filters, []types.Filter{
+			{
+				Name:   aws.String("tag-key"),
+				Values: []string{"eks:cluster-name"},
+			},
+			{
+				Name:   aws.String("tag-value"),
+				Values: []string{clusterName},
+			},
+		})
+	}
+	if *paramTagKey != "" && *paramTagValue != "" {
+		filters = append(filters, []types.Filter{
+			{
+				Name:   aws.String("tag-key"),
+				Values: []string{*paramTagKey},
+			},
+			{
+				Name:   aws.String("tag-value"),
+				Values: []string{*paramTagValue},
+			},
+		})
+	}
+	return filters
+}
+
+func describeAutoScalingGroups(ctx context.Context, client *autoscaling.Client, filters []types.Filter) ([]types.AutoScalingGroup, error) {
 	var autoScalingGroups []types.AutoScalingGroup
 	for {
-		output, err := client.DescribeAutoScalingGroups(ctx, &input)
+		input := &autoscaling.DescribeAutoScalingGroupsInput{
+			Filters: filters,
+		}
+		output, err := client.DescribeAutoScalingGroups(ctx, input)
 		if err != nil {
 			return nil, err
 		}
