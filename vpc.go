@@ -44,7 +44,7 @@ func deleteVpc(ctx context.Context, client *ec2.Client, vpcId string) error {
 
 // deleteVpcDependencies tries to delete all dependencies of the VPC with ID
 // vpcId. It accumulates errors.
-func deleteVpcDependencies(ctx context.Context, clients *clients, clusterName, vpcId string, resources stringSet, autoScalingTagKey, autoScalingTagValue *string) (errs error) {
+func deleteVpcDependencies(ctx context.Context, clients *clients, clusterName string, vpcId string, resources stringSet, autoScalingTagKey *string, autoScalingTagValue *string) (errs error) {
 	if resources.contains("VpcPeeringConnections") {
 		if vpcPeeringConnections, err := listVpcPeeringConnections(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).Msg("listVpcPeeringConnections")

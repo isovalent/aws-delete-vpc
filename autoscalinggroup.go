@@ -78,7 +78,7 @@ func deleteAutoScalingGroups(ctx context.Context, client *autoscaling.Client, ec
 	return
 }
 
-func listAutoScalingGroups(ctx context.Context, client *autoscaling.Client, clusterName string, paramTagKey, paramTagValue *string) ([]types.AutoScalingGroup, error) {
+func listAutoScalingGroups(ctx context.Context, client *autoscaling.Client, clusterName string, paramTagKey *string, paramTagValue *string) ([]types.AutoScalingGroup, error) {
 	autoScalingGroups := make([]types.AutoScalingGroup, 0)
 	filters := autoScalingFilters(clusterName, paramTagKey, paramTagValue)
 	groupNames := newStringSet()
@@ -98,7 +98,7 @@ func listAutoScalingGroups(ctx context.Context, client *autoscaling.Client, clus
 	return autoScalingGroups, nil
 }
 
-func autoScalingFilters(clusterName string, paramTagKey, paramTagValue *string) [][]types.Filter {
+func autoScalingFilters(clusterName string, paramTagKey *string, paramTagValue *string) [][]types.Filter {
 	filters := make([][]types.Filter, 0)
 	if clusterName != "" {
 		filters = append(filters, []types.Filter{
