@@ -143,24 +143,23 @@ func run() error {
 	case err != nil:
 		return err
 	case deleted:
-		if resources.contains("Clusters") {
-			if cluster != nil {
-				if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
-					return err
-				}
+		if resources.contains("Clusters") && cluster != nil {
+			if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
+				return err
+			}
+		}
+		if resources.contains("CloudFormation") {
+			err := deleteWithRetries(tries, retryInterval, func() error {
+				return deleteCloudFormation(ctx, clients.cloudformation, *clusterName)
+			})
+			if err != nil {
+				return err
 			}
 		}
 		return nil
 	}
 
-	for try := 0; try < *tries; try++ {
-		if try != 0 {
-			log.Info().
-				Dur("duration", *retryInterval).
-				Msg("Sleep")
-			time.Sleep(*retryInterval)
-		}
-
+	return deleteWithRetries(tries, retryInterval, func() error {
 		err := deleteVpcDependencies(ctx, clients, *clusterName, *vpcId, resources, autoScalingFilters)
 		log.Err(err).
 			Str("vpcId", *vpcId).
@@ -172,24 +171,34 @@ func run() error {
 			Str("vpcId", *vpcId).
 			Msg("tryDeleteVpc")
 		if deleted {
-			if resources.contains("Clusters") {
-				if cluster != nil {
-					if resources.contains("CloudFormation") {
-						if err := deleteCloudFormation(ctx, clients.cloudformation, *clusterName); err != nil {
-							log.Err(err).
-								Str("Name", *cluster.Name).
-								Msg("CloudFormation")
-							return err
-						}
-					}
-					if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
-						return err
-					}
+			if resources.contains("Clusters") && cluster != nil {
+				if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
+					return err
+				}
+			}
+			if resources.contains("CloudFormation") {
+				if err := deleteCloudFormation(ctx, clients.cloudformation, *clusterName); err != nil {
+					return err
 				}
 			}
 			return nil
 		}
-	}
+		return errors.New("failed")
+	})
+}
 
-	return errors.New("failed")
+func deleteWithRetries(tries *int, retryInterval *time.Duration, fn func() error) error {
+	var err error
+	for try := 0; try < *tries; try++ {
+		if try != 0 {
+			log.Info().
+				Dur("duration", *retryInterval).
+				Msg("Sleep")
+			time.Sleep(*retryInterval)
+		}
+		if err = fn(); err == nil {
+			return nil
+		}
+	}
+	return err
 }
