@@ -1,6 +1,5 @@
 package main
 
-// FIXME Delete CloudFormation resources?
 // FIXME Delete CloudWatch log groups?
 
 import (
@@ -35,6 +34,7 @@ func run() error {
 	excludeResources := newStringSet()
 	includeResources := newStringSet(
 		"AutoScalingGroups",
+		"CloudFormation",
 		"Clusters",
 		"ElasticIps",
 		"InternetGateways",
@@ -114,7 +114,7 @@ func run() error {
 	// FIXME Find an alternative way to detect AutoScalingGroups associated with
 	// the VPC.
 	if *autoScalingTagKey == "" && *autoScalingTagValue == "owned" && *clusterName != "" {
-		autoScalingTagKey = aws.String("k8s.io/cluster/" + *clusterName)
+		autoScalingTagKey = aws.String("kubernetes.io/cluster/" + *clusterName)
 	}
 	var autoScalingFilters []autoscalingtypes.Filter
 	if *autoScalingTagKey != "" && *autoScalingTagValue != "" {
@@ -174,6 +174,14 @@ func run() error {
 		if deleted {
 			if resources.contains("Clusters") {
 				if cluster != nil {
+					if resources.contains("CloudFormation") {
+						if err := deleteCloudFormation(ctx, clients.cloudformation, *clusterName); err != nil {
+							log.Err(err).
+								Str("Name", *cluster.Name).
+								Msg("CloudFormation")
+							return err
+						}
+					}
 					if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
 						return err
 					}

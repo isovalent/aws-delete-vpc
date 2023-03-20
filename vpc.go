@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	autoscalingtypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
@@ -18,6 +19,7 @@ import (
 
 type clients struct {
 	autoscaling          *autoscaling.Client
+	cloudformation       *cloudformation.Client
 	ec2                  *ec2.Client
 	elasticloadbalancing *elasticloadbalancing.Client
 	eks                  *eks.Client
@@ -26,6 +28,7 @@ type clients struct {
 func newClientsFromConfig(config aws.Config) *clients {
 	return &clients{
 		autoscaling:          autoscaling.NewFromConfig(config),
+		cloudformation:       cloudformation.NewFromConfig(config),
 		ec2:                  ec2.NewFromConfig(config),
 		elasticloadbalancing: elasticloadbalancing.NewFromConfig(config),
 		eks:                  eks.NewFromConfig(config),
