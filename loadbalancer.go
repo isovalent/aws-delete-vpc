@@ -28,8 +28,10 @@ func deleteLoadBalancers(ctx context.Context, client *elasticloadbalancing.Clien
 func listLoadBalancers(ctx context.Context, client *elasticloadbalancing.Client, vpcId string) ([]types.LoadBalancerDescription, error) {
 	input := elasticloadbalancing.DescribeLoadBalancersInput{}
 	var loadBalancerDescriptions []types.LoadBalancerDescription
-	for {
-		output, err := client.DescribeLoadBalancers(ctx, &input)
+
+	paginator := elasticloadbalancing.NewDescribeLoadBalancersPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -39,11 +41,8 @@ func listLoadBalancers(ctx context.Context, client *elasticloadbalancing.Client,
 			}
 			loadBalancerDescriptions = append(loadBalancerDescriptions, loadBalancerDescription)
 		}
-		if output.NextMarker == nil {
-			return loadBalancerDescriptions, nil
-		}
-		input.Marker = output.NextMarker
 	}
+	return loadBalancerDescriptions, nil
 }
 
 func loadBalancerNames(loadBalancerDescriptions []types.LoadBalancerDescription) []string {

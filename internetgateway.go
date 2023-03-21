@@ -73,15 +73,14 @@ func listInternetGateways(ctx context.Context, client *ec2.Client, vpcId string)
 		},
 	}
 	var internetGateways []types.InternetGateway
-	for {
-		output, err := client.DescribeInternetGateways(ctx, &input)
+
+	paginator := ec2.NewDescribeInternetGatewaysPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		internetGateways = append(internetGateways, output.InternetGateways...)
-		if output.NextToken == nil {
-			return internetGateways, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return internetGateways, nil
 }

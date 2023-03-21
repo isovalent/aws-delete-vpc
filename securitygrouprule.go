@@ -65,17 +65,17 @@ func listSecurityGroupRules(ctx context.Context, client *ec2.Client, groupId str
 		},
 	}
 	var securityGroupRules []types.SecurityGroupRule
-	for {
-		output, err := client.DescribeSecurityGroupRules(ctx, &input)
+
+	paginator := ec2.NewDescribeSecurityGroupRulesPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		securityGroupRules = append(securityGroupRules, output.SecurityGroupRules...)
-		if output.NextToken == nil {
-			return securityGroupRules, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return securityGroupRules, nil
+
 }
 
 func securityGroupRuleIds(securityGroupRules []types.SecurityGroupRule) []string {

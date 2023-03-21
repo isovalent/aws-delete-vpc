@@ -25,17 +25,16 @@ func listReservations(ctx context.Context, client *ec2.Client, vpcId string) ([]
 		Filters: ec2VpcFilter(vpcId),
 	}
 	var reservations []types.Reservation
-	for {
-		output, err := client.DescribeInstances(ctx, &input)
+
+	paginator := ec2.NewDescribeInstancesPaginator(client, &input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		reservations = append(reservations, output.Reservations...)
-		if output.NextToken == nil {
-			return reservations, nil
-		}
-		input.NextToken = output.NextToken
 	}
+	return reservations, nil
 }
 
 func terminateInstancesInReservations(ctx context.Context, client *ec2.Client, reservations []types.Reservation) error {
