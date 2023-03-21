@@ -12,9 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	autoscalingtypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	ekstypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -108,28 +106,6 @@ func run() error {
 
 	resources := includeResources.subtract(excludeResources)
 
-	// By default, use the tag k8s.io/cluster/$CLUSTER_NAME=owned to identify
-	// AutoScalingGroups.
-	//
-	// FIXME Find an alternative way to detect AutoScalingGroups associated with
-	// the VPC.
-	if *autoScalingTagKey == "" && *autoScalingTagValue == "owned" && *clusterName != "" {
-		autoScalingTagKey = aws.String("k8s.io/cluster/" + *clusterName)
-	}
-	var autoScalingFilters []autoscalingtypes.Filter
-	if *autoScalingTagKey != "" && *autoScalingTagValue != "" {
-		autoScalingFilters = []autoscalingtypes.Filter{
-			{
-				Name:   aws.String("tag-key"),
-				Values: []string{*autoScalingTagKey},
-			},
-			{
-				Name:   aws.String("tag-value"),
-				Values: []string{*autoScalingTagValue},
-			},
-		}
-	}
-
 	if *vpcId == "" {
 		return errors.New("VPC ID not set")
 	}
@@ -161,7 +137,7 @@ func run() error {
 			time.Sleep(*retryInterval)
 		}
 
-		err := deleteVpcDependencies(ctx, clients, *clusterName, *vpcId, resources, autoScalingFilters)
+		err := deleteVpcDependencies(ctx, clients, *clusterName, *vpcId, resources, autoScalingTagKey, autoScalingTagValue)
 		log.Err(err).
 			Str("vpcId", *vpcId).
 			Msg("deleteVpcDependencies")

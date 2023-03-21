@@ -6,7 +6,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
-	autoscalingtypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
@@ -45,7 +44,7 @@ func deleteVpc(ctx context.Context, client *ec2.Client, vpcId string) error {
 
 // deleteVpcDependencies tries to delete all dependencies of the VPC with ID
 // vpcId. It accumulates errors.
-func deleteVpcDependencies(ctx context.Context, clients *clients, clusterName, vpcId string, resources stringSet, autoScalingFilters []autoscalingtypes.Filter) (errs error) {
+func deleteVpcDependencies(ctx context.Context, clients *clients, clusterName string, vpcId string, resources stringSet, autoScalingTagKey *string, autoScalingTagValue *string) (errs error) {
 	if resources.contains("VpcPeeringConnections") {
 		if vpcPeeringConnections, err := listVpcPeeringConnections(ctx, clients.ec2, vpcId); err != nil {
 			log.Err(err).Msg("listVpcPeeringConnections")
@@ -83,25 +82,20 @@ func deleteVpcDependencies(ctx context.Context, clients *clients, clusterName, v
 	}
 
 	if resources.contains("AutoScalingGroups") {
-		if len(autoScalingFilters) == 0 {
-			log.Warn().
-				Msg("no AutoScalingGroup filters defined, skipping AutoScalingGroups")
+		if autoScalingGroups, err := listAutoScalingGroups(ctx, clients.autoscaling, clusterName, autoScalingTagKey, autoScalingTagValue); err != nil {
+			log.Err(err).
+				Msg("listAutoScalingGroups")
+			errs = multierr.Append(errs, err)
 		} else {
-			if autoScalingGroups, err := listAutoScalingGroups(ctx, clients.autoscaling, autoScalingFilters); err != nil {
+			log.Info().
+				Strs("autoScalingGroupNames", autoScalingGroupNames(autoScalingGroups)).
+				Msg("listAutoScalingGroups")
+			if len(autoScalingGroups) > 0 {
+				err := deleteAutoScalingGroups(ctx, clients.autoscaling, clients.ec2, autoScalingGroups)
 				log.Err(err).
-					Msg("listAutoScalingGroups")
-				errs = multierr.Append(errs, err)
-			} else {
-				log.Info().
 					Strs("autoScalingGroupNames", autoScalingGroupNames(autoScalingGroups)).
-					Msg("listAutoScalingGroups")
-				if len(autoScalingGroups) > 0 {
-					err := deleteAutoScalingGroups(ctx, clients.autoscaling, clients.ec2, autoScalingGroups)
-					log.Err(err).
-						Strs("autoScalingGroupNames", autoScalingGroupNames(autoScalingGroups)).
-						Msg("deleteAutoScalingGroups")
-					errs = multierr.Append(errs, err)
-				}
+					Msg("deleteAutoScalingGroups")
+				errs = multierr.Append(errs, err)
 			}
 		}
 	}
