@@ -114,7 +114,7 @@ func run() error {
 	// FIXME Find an alternative way to detect AutoScalingGroups associated with
 	// the VPC.
 	if *autoScalingTagKey == "" && *autoScalingTagValue == "owned" && *clusterName != "" {
-		autoScalingTagKey = aws.String("kubernetes.io/cluster/" + *clusterName)
+		autoScalingTagKey = aws.String("k8s.io/cluster/" + *clusterName)
 	}
 	var autoScalingFilters []autoscalingtypes.Filter
 	if *autoScalingTagKey != "" && *autoScalingTagValue != "" {

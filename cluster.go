@@ -10,6 +10,12 @@ import (
 )
 
 func deleteCluster(ctx context.Context, client *eks.Client, cluster *types.Cluster) error {
+	if err := deleteClusterNodeGroups(ctx, client, cluster); err != nil {
+		log.Err(err).
+			Str("Name", *cluster.Name).
+			Msg("DeleteClusterNodeGroups")
+		return err
+	}
 	_, err := client.DeleteCluster(ctx, &eks.DeleteClusterInput{
 		Name: cluster.Name,
 	})
