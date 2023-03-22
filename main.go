@@ -1,6 +1,5 @@
 package main
 
-// FIXME Delete CloudFormation resources?
 // FIXME Delete CloudWatch log groups?
 
 import (
@@ -35,6 +34,7 @@ func run() error {
 	excludeResources := newStringSet()
 	includeResources := newStringSet(
 		"AutoScalingGroups",
+		"CloudFormation",
 		"Clusters",
 		"ElasticIps",
 		"InternetGateways",
@@ -143,24 +143,23 @@ func run() error {
 	case err != nil:
 		return err
 	case deleted:
-		if resources.contains("Clusters") {
-			if cluster != nil {
-				if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
-					return err
-				}
+		if resources.contains("Clusters") && cluster != nil {
+			if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
+				return err
+			}
+		}
+		if resources.contains("CloudFormation") {
+			err := deleteWithRetries(tries, retryInterval, func() error {
+				return deleteCloudFormation(ctx, clients.cloudformation, *clusterName)
+			})
+			if err != nil {
+				return err
 			}
 		}
 		return nil
 	}
 
-	for try := 0; try < *tries; try++ {
-		if try != 0 {
-			log.Info().
-				Dur("duration", *retryInterval).
-				Msg("Sleep")
-			time.Sleep(*retryInterval)
-		}
-
+	return deleteWithRetries(tries, retryInterval, func() error {
 		err := deleteVpcDependencies(ctx, clients, *clusterName, *vpcId, resources, autoScalingFilters)
 		log.Err(err).
 			Str("vpcId", *vpcId).
@@ -174,13 +173,32 @@ func run() error {
 		if deleted {
 			if resources.contains("Clusters") && cluster != nil {
 				if err := deleteCluster(ctx, clients.eks, cluster); err != nil {
-					// retry is required if cluster has node-groups
-					continue
+					return err
+				}
+			}
+			if resources.contains("CloudFormation") {
+				if err := deleteCloudFormation(ctx, clients.cloudformation, *clusterName); err != nil {
+					return err
 				}
 			}
 			return nil
 		}
-	}
+		return errors.New("failed")
+	})
+}
 
-	return errors.New("failed")
+func deleteWithRetries(tries *int, retryInterval *time.Duration, fn func() error) error {
+	var err error
+	for try := 0; try < *tries; try++ {
+		if try != 0 {
+			log.Info().
+				Dur("duration", *retryInterval).
+				Msg("Sleep")
+			time.Sleep(*retryInterval)
+		}
+		if err = fn(); err == nil {
+			return nil
+		}
+	}
+	return err
 }
